@@ -291,11 +291,7 @@ python cli.py --config config/example_config.json
 ## Run with All Options
 
 ```bash
-python cli.py \
-  --csv sample_inputs/recruiter.csv \
-  --resume sample_inputs \
-  --config config/example_config.json \
-  --output output/profiles.json
+python cli.py --csv sample_inputs/recruiter.csv --resume sample_inputs --config config/example_config.json --output output/profiles.json
 ```
 
 ---
