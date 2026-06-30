@@ -1,0 +1,22 @@
+{
+    "fields": [
+        "candidate_id",
+        "full_name",
+        "emails",
+        "phones",
+        "location",
+        "experience",
+        "skills",
+        "overall_confidence",
+        "provenance"
+    ],
+
+    "rename": {
+        "full_name": "candidate_name"
+    },
+
+    "include_confidence": true,
+    "include_provenance": true,
+
+    "missing_value": null
+}
