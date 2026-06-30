@@ -2,13 +2,17 @@
 
 ## Overview
 
-This project implements an end-to-end candidate data transformation pipeline for the Eightfold AI Software Engineering Assignment.
+This project implements an end-to-end candidate data transformation pipeline for the **Eightfold AI Software Engineering Assignment**.
 
-The pipeline ingests candidate information from multiple heterogeneous sources (structured CSV and unstructured Resume PDFs), normalizes the data, identifies duplicate candidate profiles, merges them into a canonical representation, assigns confidence scores, tracks provenance, and finally produces configurable output through a runtime projection configuration.
+The pipeline ingests candidate information from multiple heterogeneous sources (**structured CSV** and **unstructured Resume PDFs**), normalizes the data, identifies duplicate candidate profiles, merges them into a canonical representation, assigns confidence scores, tracks provenance, and finally produces configurable output through a runtime projection configuration.
 
-The guiding principle followed throughout the implementation is:
+---
+
+## Design Principle
 
 > **"Wrong-but-confident is worse than honestly-empty."**
+
+The pipeline prioritizes avoiding **false-positive merges** over aggressively combining uncertain candidate records. When strong identity evidence is unavailable, the system preserves separate candidate profiles rather than risking an incorrect merge.
 
 ---
 
@@ -73,7 +77,17 @@ eightfold-candidate-transformer/
 │   ├── recruiter.csv
 │   ├── resume_bushra.pdf
 │   ├── resume_aman.pdf
-│   ├── ...
+│   ├── resume_rohan.pdf
+│   ├── resume_priya.pdf
+│   ├── resume_karan.pdf
+│   └── resume_neha.pdf
+│
+├── tests/
+│   ├── test_merge.py
+│   └── test_pipeline.py
+│
+├── output/
+│   └── profiles.json
 │
 ├── cli.py
 ├── requirements.txt
@@ -94,7 +108,7 @@ eightfold-candidate-transformer/
 
 - Resume PDF
 
-Both sources are converted into a common `RawRecord` representation.
+Both sources are converted into a common **RawRecord** representation.
 
 ---
 
@@ -103,64 +117,73 @@ Both sources are converted into a common `RawRecord` representation.
 The normalization stage standardizes:
 
 - Emails
-- Phone numbers (E.164)
+- Phone numbers (E.164 format)
 - Dates
 - Skills
+
+This ensures consistent candidate information across heterogeneous sources.
 
 ---
 
 ## 3. Candidate Matching
 
-Candidates are matched using strong identifiers.
+Candidates are matched using strong identity signals.
 
-Priority order:
+### Strong Matches
 
-1. Email
-2. Phone Number
-3. GitHub URL (future)
-4. LinkedIn URL (future)
+- Email
+- Phone Number
+- GitHub URL *(future)*
+- LinkedIn URL *(future)*
 
-Weak matching:
+### Weak Matches
 
 - Name + Company
+- Name + Company + Role
 
-Contradiction rule:
+Weak matches receive a **low confidence score** and are merged **only if their confidence exceeds the configured match threshold**.
 
-If two records contain conflicting strong identifiers (email or phone), they are **not merged**.
+### Contradiction Rule
+
+If two records contain conflicting strong identifiers (email or phone), they are intentionally **not merged**.
 
 ---
 
 ## 4. Candidate Merge
 
-Matching records are merged into one canonical candidate profile.
+Matching records are merged into a single canonical candidate profile.
 
-Rules:
+Merge rules:
 
-- Highest-priority value wins for scalar fields.
-- Array fields are unioned.
-- Skills are deduplicated.
-- Provenance is preserved.
-- Confidence scores are calculated.
+- Highest-priority value wins for scalar fields
+- Array fields are unioned
+- Skills are deduplicated
+- Provenance is preserved
+- Confidence scores are calculated
 
 ---
 
-## 5. Projection
+## 5. Configurable Projection
 
-The final output is controlled through:
+The pipeline first builds a complete canonical candidate profile.
+
+A runtime configuration file:
 
 ```
 config/example_config.json
 ```
 
-The configuration supports:
+controls the final output schema.
+
+Supported configuration options include:
 
 - Selecting output fields
 - Renaming fields
-- Hiding confidence
+- Hiding confidence scores
 - Hiding provenance
-- Missing value handling
+- Missing-value handling
 
-No code changes are required.
+Different output schemas can therefore be produced **without modifying the source code**, satisfying the configurable output requirement of the assignment.
 
 ---
 
@@ -175,28 +198,33 @@ Validation checks include:
 - Confidence score range
 - Projection correctness
 
+Only valid projected profiles are returned.
+
 ---
 
 # Matching Strategy
 
-Strong Matches
+## Strong Matches
 
 - Email
 - Phone Number
-- GitHub (future)
-- LinkedIn (future)
+- GitHub *(future)*
+- LinkedIn *(future)*
 
-Weak Matches
+## Weak Matches
 
 - Name + Company
+- Name + Company + Role
 
-Profiles with conflicting strong identifiers are intentionally kept separate.
+Weak matches receive a low confidence score and are considered only when their confidence satisfies the configured merge threshold.
+
+Profiles with conflicting strong identifiers are intentionally kept separate to minimize false merges.
 
 ---
 
 # Confidence Scoring
 
-Confidence depends on:
+Confidence depends on multiple factors, including:
 
 - Source reliability
 - Number of corroborating sources
@@ -209,6 +237,8 @@ Confidence values range between:
 0.0 – 1.0
 ```
 
+Higher confidence indicates stronger evidence that the merged profile correctly represents a single candidate.
+
 ---
 
 # Provenance
@@ -218,39 +248,47 @@ Every merged field records:
 - Source
 - Merge method
 
-Example
+Example:
 
 ```json
 {
-    "field":"skills.Python",
-    "source":"resume",
-    "method":"union"
+  "field": "skills.Python",
+  "source": "resume",
+  "method": "union"
 }
 ```
+
+This provides full traceability of every value in the canonical profile.
 
 ---
 
 # Running the Project
 
-Install dependencies
+## Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Run with default schema (full canonical output)
+---
+
+## Run with Default Configuration
 
 ```bash
 python cli.py
 ```
 
-Run with custom config (renamed fields, no provenance — the required twist)
+---
+
+## Run with Custom Projection Configuration
 
 ```bash
 python cli.py --config config/example_config.json
 ```
 
-Run with all options
+---
+
+## Run with All Options
 
 ```bash
 python cli.py \
@@ -260,27 +298,55 @@ python cli.py \
   --output output/profiles.json
 ```
 
-Run pipeline directly
+---
+
+## Run Pipeline Directly
 
 ```bash
 python -m src.pipeline
 ```
 
-Run tests
+---
+
+# Testing
+
+Run all automated tests:
 
 ```bash
 python -m pytest tests/ -v
 ```
 
+The project includes **19 automated tests** covering:
+
+- Phone normalization
+- Date normalization
+- Skill normalization
+- Candidate matching
+- Merge logic
+- Contradiction handling
+- Confidence scoring
+- End-to-end pipeline execution
+- Configurable projection
+
+All tests currently pass successfully.
+
+---
+
 # Sample Output
 
-The pipeline generates canonical candidate profiles with:
+The pipeline generates canonical candidate profiles containing:
 
 - Normalized data
 - Merged information
 - Confidence scores
 - Provenance
-- Configurable output
+- Configurable output schema
+
+A sample generated output is available in:
+
+```
+output/profiles.json
+```
 
 ---
 
@@ -289,8 +355,9 @@ The pipeline generates canonical candidate profiles with:
 - Resume PDFs follow a reasonably consistent format.
 - CSV data may contain missing values.
 - Email and phone are treated as strong identifiers.
-- Missing strong identifiers are never assumed to match.
-- Wrong merges are avoided even if it results in duplicate profiles.
+- Weak matches receive low confidence and are filtered using a configurable threshold.
+- Missing strong identifiers are never assumed to represent the same candidate.
+- False-positive merges are avoided even if this results in duplicate candidate profiles.
 
 ---
 
@@ -299,9 +366,10 @@ The pipeline generates canonical candidate profiles with:
 - LinkedIn ingestion
 - GitHub ingestion
 - ATS JSON ingestion
-- OCR support
+- OCR support for scanned resumes
 - Semantic resume parsing using LLMs
 - Embedding-based candidate similarity
+- Active learning for merge threshold tuning
 
 ---
 
@@ -312,5 +380,10 @@ The pipeline generates canonical candidate profiles with:
 - pandas
 - pdfplumber
 - phonenumbers
+- pytest
 
 ---
+
+# License
+
+This project was developed as part of the **Eightfold AI Software Engineering Assignment** and is intended for evaluation purposes.
